@@ -18,7 +18,4 @@
 			<Private>False</Private>
 		</Reference>
 	</ItemGroup>
-	<Target Name="DumpReferencePath" BeforeTargets="CoreCompile">
-		<Message Text="RefPath: %(ReferencePath.Identity)" Importance="High" />
-	</Target>
 </Project>
