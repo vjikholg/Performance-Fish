@@ -88,6 +88,7 @@
 		<Publicize Include="mscorlib:System.RuntimeType" />
 		<Publicize Include="mscorlib:System.Reflection.MonoField" />
 		<Publicize Include="mscorlib:System.String.m_firstChar" />
+		<Publicize Include="mscorlib:System.Reflection.RuntimeFieldInfo" />
 		<None Include="..\..\LICENSE">
 			<Pack>True</Pack>
 			<PackagePath />
