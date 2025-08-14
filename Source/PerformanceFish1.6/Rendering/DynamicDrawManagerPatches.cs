@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2023 bradson
+// Copyright (c) 2023 bradson
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -75,22 +75,22 @@ public sealed class DynamicDrawManagerPatches : ClassWithFishPrepatches
 			var currentViewRect = Find.CameraDriver.CurrentViewRect.ClipInsideMap(map).ExpandedBy(1);
 			var shadowViewRect = SectionLayer_SunShadows.GetSunShadowsViewRect(map, currentViewRect);
 			instance.drawThings.UnwrapArray(out var drawThings, out var drawThingsCount);
-			
+
 			for (var i = 0; i < drawThingsCount; i++)
 			{
 				var drawThing = drawThings.UnsafeLoad(i);
 				var position = drawThing.Position;
 				var drawThingDef = drawThing.def;
 				var cellIndex = position.CellToIndex(mapSizeX);
-				if ((!fogGrid[cellIndex] || drawThingDef.seeThroughFog)
-					&& (drawThingDef.hideAtSnowDepth >= 1f
-						|| drawThingDef.hideAtSnowDepth >= snowGrid[cellIndex]))
+				if ((!fogGrid.IsSet(cellIndex) || drawThingDef.seeThroughFog)
+					&& (drawThingDef.hideAtSnowOrSandDepth >= 1f
+						|| drawThingDef.hideAtSnowOrSandDepth >= snowGrid[cellIndex]))
 				{
 					if (currentViewRect.Contains(position)
 						|| currentViewRect.Overlaps(drawThing.OccupiedDrawRect()))
 					{
 						ThingsToDraw.Add(drawThing);
-						
+
 						if (!DebugViewSettings.singleThreadedDrawing)
 							EnsureInitialized(drawThing);
 					}

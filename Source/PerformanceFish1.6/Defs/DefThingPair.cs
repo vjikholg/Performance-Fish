@@ -4,6 +4,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 namespace PerformanceFish.Defs;
+using HashCode = FisheryLib.HashCode;
 
 public record struct DefThingPair(int DefShortHash, int ThingIDNumber)
 {

@@ -83,8 +83,9 @@ public sealed class WorldObjectsOptimization : ClassWithFishPrepatches
 
 				if (!SkippableComps.Contains(comp.GetType()))
 					return false;
-				
+			#if V1_5
 				comp.CompTick();
+			#endif
 			}
 
 			return true;
@@ -153,7 +154,7 @@ public sealed class WorldObjectsOptimization : ClassWithFishPrepatches
         public override MethodBase TargetMethodBase =>
             AccessTools.Method(typeof(WorldObject), "Tick");
 
-        [HarmonyPrefix]
+        [HarmonyPrefix, HarmonyPriority(HarmonyLib.Priority.High)]
         public static bool PREFIX(WorldObject __instance) => PerTickCache.EnsureUpToDateAndMustTick(__instance);
 
     }
@@ -163,7 +164,9 @@ public sealed class WorldObjectsOptimization : ClassWithFishPrepatches
         private static readonly HashSet<WorldObject> _whatToTickCache = new();
         private static int _cachedWorldObjectsVersion = -2;
         private static int _cachedMapsVersion = -2;
-		public static bool EnsureUpToDateAndMustTick(WorldObject worldObject)
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool EnsureUpToDateAndMustTick(WorldObject worldObject)
 		{
 			var holder = Find.WorldObjects; 
 			if(_cachedWorldObjectsVersion != holder.worldObjects._version|| _cachedMapsVersion != Current.gameInt.maps._version)
@@ -184,24 +187,27 @@ public sealed class WorldObjectsOptimization : ClassWithFishPrepatches
 			{
 				bool hasMap = wo is MapParent { HasMap: true };	
 				bool skippableType = WorldObjectsHolderTickPatch.SkippableWorldObjects.Contains(wo.GetType());
-				bool compsRequirePerTick = WorldObjectsHolderTickPatch.CanSkipCompTick(wo);
+				bool compsRequirePerTick = !WorldObjectsHolderTickPatch.CanSkipCompTick(wo);
 
 				if (!hasMap && (!skippableType || compsRequirePerTick))
 				{
 					_whatToTickCache.Add(wo);
 				}
+				#if DEBUG
 				else if (skippableType && !compsRequirePerTick)
                 {
 					Log.Warning($"WorldObject '{wo.ToStringSafe()}' of type '{wo.GetType().Name}' is skippable, but has a comp that requires ticking. This should not happen. ");
                 }
+				#endif
             });
+
 			_cachedMapsVersion = Current.gameInt.maps._version; 
 			_cachedWorldObjectsVersion = holder.worldObjects._version;
         }
 
     }
 #endif
-    public sealed class ExpandingIconCaching : FishPrepatch
+	public sealed class ExpandingIconCaching : FishPrepatch
 	{
 		public override string? Description { get; }
 			= "Caches icons that get displayed for world objects like settlements on the planet view and adds various "

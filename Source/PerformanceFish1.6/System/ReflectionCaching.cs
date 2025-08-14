@@ -56,6 +56,7 @@ using ActivatorCache
 using CustomAttributeCache
 	= PerformanceFish.Cache.ByReferenceClassic<System.Reflection.ICustomAttributeProvider, System.RuntimeTypeHandle, bool,
 		PerformanceFish.System.ReflectionCaching.MonoCustomAttrs.CustomAttributeCacheValue>;
+using HashCode = FisheryLib.HashCode;
 
 namespace PerformanceFish.System;
 
