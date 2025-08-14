@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2023 bradson
+// Copyright (c) 2023 bradson
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -183,22 +183,27 @@ public sealed class Haulables : ClassWithFishPrepatches
 		public readonly HashSet<Thing> ThingsQueuedToRemove = [];
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public void CheckUpdate(List<Thing> haulables)
+		public void CheckUpdate(ICollection<Thing> haulables)
 		{
 			if (IsDirty(haulables))
 				Update(haulables);
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public bool IsDirty(List<Thing> haulables) => haulables.Count != ContainedThings.Count;
+		public bool IsDirty(ICollection<Thing> haulables) => haulables.Count != ContainedThings.Count;
 
 		[MethodImpl(MethodImplOptions.NoInlining)]
-		public void Update(List<Thing> haulables)
+		public void Update(ICollection<Thing> haulables)
 		{
 			ContainedThings.Clear();
-			
-			for (var i = haulables.Count; i-- > 0;)
-				ContainedThings.Add(haulables[i].GetKey());
+
+			foreach (var thing in haulables)
+			{
+				ContainedThings.Add(thing.GetKey());
+			}
+
+			// for (var i = haulables.Count; i-- > 0;)
+			// 	ContainedThings.Add(haulables[i].GetKey());
 		}
 	}
 }
