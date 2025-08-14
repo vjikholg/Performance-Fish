@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2023 bradson
+// Copyright (c) 2023 bradson
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -415,7 +415,7 @@ public sealed class GasGridOptimization : ClassWithFishPrepatches
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static int GetMapSizeX(Map map) => map.cellIndices.mapSizeX;
+		public static int GetMapSizeX(Map map) => map.cellIndices.sizeX;
 	}
 
 	public sealed class ExposeDataPatch : FishPrepatch
@@ -1075,7 +1075,7 @@ public sealed class GasGridOptimization : ClassWithFishPrepatches
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		private IntVec3 IndexToCell(int index)
-			=> CellIndicesUtility.IndexToCell(index, Map.cellIndices.mapSizeX);
+			=> CellIndicesUtility.IndexToCell(index, Map.cellIndices.sizeX);
 
 		/// <summary>
 		/// For modders. Performance Fish doesn't automatically scribe added custom defs.

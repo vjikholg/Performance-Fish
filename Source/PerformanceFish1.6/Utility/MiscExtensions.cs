@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2023 bradson
+// Copyright (c) 2023 bradson
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -97,7 +97,7 @@ public static class MiscExtensions
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static int SizeX(this Map map) => map.cellIndices.mapSizeX;
+	public static int SizeX(this Map map) => map.cellIndices.sizeX;
 
 	public static Map? TryGetMapHeld(this Thing thing)
 	{
@@ -134,7 +134,10 @@ public static class MiscExtensions
 
 	public static void InvokeWhenCellIndicesReady(this Map map, Action<Map> action)
 	{
-		if (map.cellIndices != null)
+		// cellIndices is now struct - null check impossible
+		// public int NumGridCells => sizeX * sizeZ;
+		// suff check 
+		if (map.cellIndices.NumGridCells > 0)
 			action(map);
 		else
 			map.Events().ComponentsConstructed += action;

@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2023 bradson
+// Copyright (c) 2023 bradson
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -123,7 +123,7 @@ public sealed class MiscOptimizations : ClassWithFishPatches
 		public static void Replacement(RimWorld.CompRottable instance)
 		{
 			if ((TickHelper.TicksGame & 255) == (instance.parent.thingIDNumber & 255))
-				instance.Tick(256);
+				instance.CompTickInterval(256);
 		}
 	}
 

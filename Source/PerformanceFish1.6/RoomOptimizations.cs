@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2023 bradson
+// Copyright (c) 2023 bradson
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -274,7 +274,7 @@ public sealed class RoomOptimizations : ClassWithFishPatches, IHasDescription
 			cache.ListVersions.Clear();
 			var map = instance.Map;
 			var regionGrid = map.regionGrid.regionGrid;
-			var mapSizeX = map.cellIndices.mapSizeX;
+			var sizeX = map.cellIndices.sizeX;
 
 			using var pooledAdjacentThings = new Pools.PooledIList<List<Thing>>();
 			var adjacentThings = pooledAdjacentThings.List;
@@ -298,7 +298,7 @@ public sealed class RoomOptimizations : ClassWithFishPatches, IHasDescription
 				for (var j = 0; j < count; j++)
 				{
 					var thing = allThings[j];
-					var thingRegionId = regionGrid[thing.Position.CellToIndex(mapSizeX)].id;
+					var thingRegionId = regionGrid[thing.Position.CellToIndex(sizeX)].id;
 					
 					if (thingRegionId == region.id)
 						uniqueContainedThings.Add(thing);
@@ -350,7 +350,7 @@ public sealed class RoomOptimizations : ClassWithFishPatches, IHasDescription
 		public static Room? RoomAt(IntVec3 c, Map map, RegionType allowedRegionTypes = RegionType.Set_All)
 		{
 			var cellIndices = map.cellIndices;
-			if (((uint)c.x >= (uint)cellIndices.mapSizeX) | ((uint)c.z >= (uint)cellIndices.mapSizeZ))
+			if (((uint)c.x >= (uint)cellIndices.sizeX) | ((uint)c.z >= (uint)cellIndices.sizeZ))
 				return null;
 
 			var regionAndRoomUpdater = map.regionAndRoomUpdater;
@@ -360,7 +360,7 @@ public sealed class RoomOptimizations : ClassWithFishPatches, IHasDescription
 			else if (regionAndRoomUpdater.AnythingToRebuild)
 				LogIncorrectResultWarning(c);
 
-			var region = map.regionGrid.regionGrid[(c.z * cellIndices.mapSizeX) + c.x];
+			var region = map.regionGrid.regionGrid[(c.z * cellIndices.sizeX) + c.x];
 			return region is null || !region.valid || (region.type & allowedRegionTypes) == 0
 				? null
 				: region.District?.Room;
