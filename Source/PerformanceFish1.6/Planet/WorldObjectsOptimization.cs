@@ -8,12 +8,18 @@ using Mono.Cecil;
 using Mono.Cecil.Cil;
 using PerformanceFish.Prepatching;
 using RimWorld.Planet;
+using UnityEngine.UI;
 
 namespace PerformanceFish.Planet;
 
 public sealed class WorldObjectsOptimization : ClassWithFishPrepatches
 {
-	public sealed class WorldObjectsHolderTickPatch : FishPrepatch
+
+    // At the moment this doesn't work since it breaks delta-based ticking 
+    // I've replaced it with a prefix on WorldObject.Tick instead, WorldObjectTickPatch
+	// Its not as efficient as the original idea, but thats because previously each tick would check everything 
+	// Now things that don't need to be ticked are skipped + delta-based ticking remains invariant
+    public sealed class WorldObjectsHolderTickPatch : FishPrepatch
 	{
 		public override string? Description { get; }
 			= "The world objects holder is responsible for ticking every world object. This includes settlements, "
@@ -22,12 +28,13 @@ public sealed class WorldObjectsOptimization : ClassWithFishPrepatches
 			+ "This patch improves the world objects holder to determine objects that need ticking in advance, cache "
 			+ "the list of them, and only tick those, skipping all the others.";
 
-		public override MethodBase TargetMethodBase { get; }
-			= AccessTools.Method(typeof(WorldObjectsHolder), nameof(WorldObjectsHolder.WorldObjectsHolderTick));
 
+        public override MethodBase TargetMethodBase { get; }
+			= AccessTools.Method(typeof(WorldObjectsHolder), nameof(WorldObjectsHolder.WorldObjectsHolderTick));
+		
+		#if V1_5
 		public override void Transpiler(ILProcessor ilProcessor, ModuleDefinition module)
 			=> ilProcessor.ReplaceBodyWith(WorldObjectsHolderTick);
-
 		public static void WorldObjectsHolderTick(WorldObjectsHolder instance)
 		{
 			if (CacheDirty(instance))
@@ -37,7 +44,7 @@ public sealed class WorldObjectsOptimization : ClassWithFishPrepatches
 			for (var i = worldObjects.Count; i-- > 0;)
 				worldObjects[i].Tick();
 		}
-
+		#endif
 		public static void UpdateCache(WorldObjectsHolder instance)
 		{
 			var staticWorldObjects = WorldObjectsHolder.tmpWorldObjects;
@@ -64,7 +71,7 @@ public sealed class WorldObjectsOptimization : ClassWithFishPrepatches
 			CachedMapsVersion = Current.gameInt.maps._version;
 		}
 
-		private static bool CanSkipCompTick(WorldObject worldObject)
+		internal static bool CanSkipCompTick(WorldObject worldObject)
 		{
 			var comps = worldObject.comps;
 
@@ -124,7 +131,7 @@ public sealed class WorldObjectsOptimization : ClassWithFishPrepatches
 				_whitelistedTickingCompTypes);
 
 		private static HashSet<Type> InitializeSkippableWorldObjects()
-			=> MakeSubclassHashSet(typeof(WorldObject), nameof(WorldObject.Tick), _whitelistedWorldObjectTypes);
+			=> MakeSubclassHashSet(typeof(WorldObject), "Tick", _whitelistedWorldObjectTypes);
 
 		private static HashSet<Type> MakeSubclassHashSet(Type type, string name, Type?[] allowedDeclaringTypes)
 			=> type.SubclassesWithNoMethodOverrideAndSelf(allowedDeclaringTypes, name).ToHashSet();
@@ -137,8 +144,64 @@ public sealed class WorldObjectsOptimization : ClassWithFishPrepatches
 
 		static WorldObjectsHolderTickPatch() => Cache.Utility.Cleared += SetDirty;
 	}
+#if V1_6
+	public sealed class WorldObjectTickPatch : FishPrepatch
+    {
+        public override string? Description { get; }
+        = "This is a minimally invasive patch for WorldObject.Tick"
+        + " that allows the world objects holder to skip ticking objects that do not need it.";
+        public override MethodBase TargetMethodBase =>
+            AccessTools.Method(typeof(WorldObject), "Tick");
 
-	public sealed class ExpandingIconCaching : FishPrepatch
+        [HarmonyPrefix]
+        public static bool PREFIX(WorldObject __instance) => PerTickCache.EnsureUpToDateAndMustTick(__instance);
+
+    }
+
+	internal static class PerTickCache
+	{
+        private static readonly HashSet<WorldObject> _whatToTickCache = new();
+        private static int _cachedWorldObjectsVersion = -2;
+        private static int _cachedMapsVersion = -2;
+		public static bool EnsureUpToDateAndMustTick(WorldObject worldObject)
+		{
+			var holder = Find.WorldObjects; 
+			if(_cachedWorldObjectsVersion != holder.worldObjects._version|| _cachedMapsVersion != Current.gameInt.maps._version)
+			{
+				Rebuild(holder);
+				_cachedWorldObjectsVersion = holder.worldObjects._version;
+				_cachedMapsVersion = Current.gameInt.maps._version;
+            }
+
+			return _whatToTickCache.Contains(worldObject);
+
+        }
+		private static void Rebuild(WorldObjectsHolder holder)
+		{
+			_whatToTickCache.Clear();
+			var list = holder.worldObjects;
+			list.ForEach(wo =>
+			{
+				bool hasMap = wo is MapParent { HasMap: true };	
+				bool skippableType = WorldObjectsHolderTickPatch.SkippableWorldObjects.Contains(wo.GetType());
+				bool compsRequirePerTick = WorldObjectsHolderTickPatch.CanSkipCompTick(wo);
+
+				if (!hasMap && (!skippableType || compsRequirePerTick))
+				{
+					_whatToTickCache.Add(wo);
+				}
+				else if (skippableType && !compsRequirePerTick)
+                {
+					Log.Warning($"WorldObject '{wo.ToStringSafe()}' of type '{wo.GetType().Name}' is skippable, but has a comp that requires ticking. This should not happen. ");
+                }
+            });
+			_cachedMapsVersion = Current.gameInt.maps._version; 
+			_cachedWorldObjectsVersion = holder.worldObjects._version;
+        }
+
+    }
+#endif
+    public sealed class ExpandingIconCaching : FishPrepatch
 	{
 		public override string? Description { get; }
 			= "Caches icons that get displayed for world objects like settlements on the planet view and adds various "
