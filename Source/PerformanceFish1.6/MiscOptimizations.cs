@@ -107,7 +107,8 @@ public sealed class MiscOptimizations : ClassWithFishPatches
 		private static int _lastSwayFrame;
 		private static bool _lastPrefValue;
 	}
-
+	// this class isnt needed anymore. 
+	#if V1_5
 	public sealed class CompRottable : FishPatch
 	{
 		public override string? Description { get; }
@@ -123,9 +124,10 @@ public sealed class MiscOptimizations : ClassWithFishPatches
 		public static void Replacement(RimWorld.CompRottable instance)
 		{
 			if ((TickHelper.TicksGame & 255) == (instance.parent.thingIDNumber & 255))
-				instance.CompTickInterval(256);
+				instance.Tick(256);
 		}
 	}
+	#endif
 
 	public sealed class RitualObligationTrigger_Date : FirstPriorityFishPatch
 	{
