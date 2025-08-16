@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2023 bradson
+// Copyright (c) 2023 bradson
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -49,6 +49,7 @@ public static class PrepatchManager
 		if (!ActiveMods.Prepatcher)
 			Log.Warning("Prepatches running without prepatcher active. This should normally not happen.");
 
+		Log.Message("STOPWATCH STARTING");
 		var stopwatch = new Stopwatch();
 		stopwatch.Start();
 		
@@ -81,20 +82,27 @@ public static class PrepatchManager
 
 		Application.logMessageReceivedThreaded -= Verse.Log.Notify_MessageReceivedThreadedInternal;
 
+		Log.Message("ADDING ATTRIBUTES");
 		AddAttributes(module);
 
+		Log.Message("MODIFYING ALL TYPES");
 		ModifyAllTypes(module);
 
+		Log.Message("INITIALIZE ALL PREPATCH CLASSES");
 		var allPrepatchClasses
 			= PerformanceFishMod.AllPrepatchClasses
 				= PerformanceFishMod.InitializeAllPatchClasses<ClassWithFishPrepatches>();
 
 		_ = FishSettings.Instance;
-		
+		Log.Message("APPLYING ALL PREPATCH CLASSES");
 		allPrepatchClasses.ApplyPatches(module);
+
+		Log.Message("INITIALIZING PREPATCH IDS");
 
 		FishStash.Get.InitializeActivePrepatchIDs();
 		PatchingFinished = true;
+
+		Log.Message("PATCHING FINISHED");
 		stopwatch.Stop();
 		Verse.Log.Message($"Performance Fish finished applying prepatches in {
 			stopwatch.ElapsedSecondsAccurate():N7} seconds");

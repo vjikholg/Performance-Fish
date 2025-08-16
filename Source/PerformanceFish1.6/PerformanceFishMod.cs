@@ -192,8 +192,19 @@ public sealed class PerformanceFishMod : Mod
 
 	internal static T[] InitializeAllPatchClasses<T>() where T : notnull
 	{
+		Log.Message($"Initializing all patch classes of type {typeof(T).Name}...");
 		var types = Assembly.GetExecutingAssembly().GetTypes();
+		var candidates = types.Where(t => t.IsAssignableTo(typeof(ClassWithFishPrepatches)) && !t.IsInterface && !t.IsAbstract)
+		.OrderBy(t => t.FullName)  // stable order
+		.ToList();
+
+		Log.Message($"[PF] Patch classes ({candidates.Count}):\n  - " + string.Join("\n  - ", candidates.Select(t => t.FullName)));
+
 		var list = new List<T>(types.Length);
+		Log.Message($"Found {types.Length} types in the assembly.");	
+		Log.Message($"Searching for all patch classes of type {typeof(T).Name}...");
+		Log.Message($"Found {types.Count(type => type.IsAssignableTo(typeof(T)) && !type.IsInterface && !type.IsAbstract)} patch classes of type {typeof(T).Name}.");
+
 
 		if (typeof(T).IsAssignableTo(typeof(FishPatch)))
 			Parallel.ForEach(types, InitializePatchClass);
@@ -204,24 +215,36 @@ public sealed class PerformanceFishMod : Mod
 		
 		void InitializePatchClass(Type type)
 		{
-			if (!type.IsAssignableTo(typeof(T))
-				|| type.IsInterface
-				|| type.IsAbstract)
+			Log.Message($"Initializing class of type {type.Name}...");
+			if (type.Name == "GeneTrackerOptimization")
 			{
+				Log.Message($"Skipping GeneTrackerOptimization - crashcode");
+				return;
+			} else if (type.Name == "GenTypesPatches")
+			{
+				Log.Message($"Skipping GenTypesPatches - crashcode");
 				return;
 			}
-
 			try
-			{
-				var patchClass = SingletonFactory<T>.Get(type);
+				{
+					if (!type.IsAssignableTo(typeof(T))
+						|| type.IsInterface
+						|| type.IsAbstract)
+					{
+						Log.Message($"Skipping {type.Name} as it is not assignable to {typeof(T).Name}, is an interface or is abstract.");
+						return;
+					}
 
-				lock (((ICollection)list).SyncRoot)
-					list.Add(patchClass);
-			}
-			catch (Exception ex)
-			{
-				Log.Error($"{NAME} encountered an exception while trying to initialize {type.Name}:\n{ex}");
-			}
+					var patchClass = SingletonFactory<T>.Get(type);
+
+					lock (((ICollection)list).SyncRoot)
+						list.Add(patchClass);
+					Log.Message($"Successfully initialized {type.Name}.");
+				}
+				catch (Exception ex)
+				{
+					Log.Error($"{NAME} encountered an exception while trying to initialize {type.Name}:\n{ex}");
+				}
 		}
 	}
 

@@ -75,6 +75,7 @@ public unsafe struct FishStash : IEquatable<FishStash>
 
 	internal void InitializeActivePrepatchIDs()
 	{
+		Log.Message("Initializing active prepatch IDs...");
 		var activePrepatches = PerformanceFishMod.AllPrepatchClasses!
 			.SelectMany(static patchClass => patchClass.Patches
 				.Where(static patch => patch.Enabled)
@@ -83,7 +84,11 @@ public unsafe struct FishStash : IEquatable<FishStash>
 
 		var activePrepatchCount = activePrepatches.Length;
 		_activePrepatchCount = activePrepatchCount;
+		Log.Message("Allocating Global...");
+
 		_activePrepatches = Marshal.AllocHGlobal(sizeof(int) * activePrepatchCount);
+
+		Log.Message("Marshal Copy...");
 		Marshal.Copy(activePrepatches, 0, _activePrepatches, activePrepatchCount);
 	}
 

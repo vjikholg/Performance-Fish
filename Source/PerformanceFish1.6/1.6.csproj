@@ -13,6 +13,9 @@
 	<ItemGroup>
 		<PackageReference Include="Krafs.Rimworld.Ref" Version="1.6.*" />
 		<PackageReference Include="Lib.Harmony" Version="2.3.6" ExcludeAssets="runtime" />
+		<Reference Include="0PrepatcherAPI">
+		  <HintPath>..\..\..\Prepatcher-jikulopo\1.6\Assemblies\0PrepatcherAPI.dll</HintPath>
+		</Reference>
 		<Reference Include="1Fishery">
 			<HintPath>..\..\..\Fishery\1.6\Assemblies\1Fishery.dll</HintPath>
 			<Private>False</Private>

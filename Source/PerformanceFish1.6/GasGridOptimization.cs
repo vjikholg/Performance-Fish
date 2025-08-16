@@ -39,7 +39,7 @@ public sealed class GasGridOptimization : ClassWithFishPrepatches
 
 		public override string? Description { get; }
 			= "Required by the gas grid optimization";
-		// this is crashcode
+
 		public override MethodBase TargetMethodBase { get; }
 			= AccessTools.DeclaredMethod(typeof(GasGrid), nameof(GasGrid.SetDirect), 
 				new[] {typeof(int), typeof(byte), typeof(byte), typeof(byte), typeof(byte) });
