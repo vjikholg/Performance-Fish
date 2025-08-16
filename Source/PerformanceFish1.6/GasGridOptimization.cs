@@ -39,9 +39,10 @@ public sealed class GasGridOptimization : ClassWithFishPrepatches
 
 		public override string? Description { get; }
 			= "Required by the gas grid optimization";
-
+		// this is crashcode
 		public override MethodBase TargetMethodBase { get; }
-			= AccessTools.DeclaredMethod(typeof(GasGrid), nameof(GasGrid.SetDirect));
+			= AccessTools.DeclaredMethod(typeof(GasGrid), nameof(GasGrid.SetDirect), 
+				new[] {typeof(int), typeof(byte), typeof(byte), typeof(byte), typeof(byte) });
 
 		public override void Transpiler(ILProcessor ilProcessor, ModuleDefinition module)
 			=> ilProcessor.ReplaceBodyWith(ReplacementBody);
@@ -262,7 +263,8 @@ public sealed class GasGridOptimization : ClassWithFishPrepatches
 		public override bool ShowSettings => false;
 
 		public override MethodBase TargetMethodBase { get; }
-			= AccessTools.DeclaredMethod(typeof(GasGrid), nameof(GasGrid.AddGas));
+			= AccessTools.DeclaredMethod(typeof(GasGrid), nameof(GasGrid.AddGas),
+				new[] {typeof(IntVec3), typeof(GasType), typeof(int), typeof(bool)}); // FLAG
 		
 		public override void Transpiler(ILProcessor ilProcessor, ModuleDefinition module)
 			=> ilProcessor.ReplaceBodyWith(ReplacementBody);
@@ -964,13 +966,21 @@ public sealed class GasGridOptimization : ClassWithFishPrepatches
 		
 		private void DissipateGasAt(int index)
 		{
+			int densityBeforeDissipation = _gasDensity[index];
+			if (densityBeforeDissipation <= 0) return;
+
+			var cell = IndexToCell(index);
+			var rateFactor = (cell.Roofed(Map) ? 0.5f : 1f) + cell.GetVacuum(Map) * 25f;
+			var decreasePerTick = (int)(DissipationRate * rateFactor);
+			int densityAfterDissipation = Math.Max(densityBeforeDissipation - decreasePerTick, 0);
+
+			if (densityAfterDissipation == densityBeforeDissipation) return; 
+
 #if GAS_DEBUG_L1
 			var previousDensity = _gasDensity[index];
 			if (previousDensity == 0)
 				Debug.LogInvalidDissipationAttempt(this, index);
 #endif
-
-			var densityAfterDissipation = Math.Max(_gasDensity[index] - DissipationRate, 0);
 			
 			Debug.LogDissipationRate(this, index, densityAfterDissipation);
 			SetDirect(index, (byte)densityAfterDissipation);
@@ -979,8 +989,7 @@ public sealed class GasGridOptimization : ClassWithFishPrepatches
 			if (_gasDensity[index] >= previousDensity)
 				Debug.LogFailedDissipation(this, index, previousDensity);
 #endif
-
-			if (densityAfterDissipation == 0)
+			if (densityAfterDissipation != densityBeforeDissipation)
 			{
 				Debug.LogMapMeshDirty(this, index);
 				Map.mapDrawer.MapMeshDirty(IndexToCell(index),
@@ -1066,11 +1075,15 @@ public sealed class GasGridOptimization : ClassWithFishPrepatches
 
 		public bool GasCanMoveTo(IntVec3 cell)
 		{
-			if (!cell.InBounds(Map))
-				return false;
-			if (cell.Filled(Map))
-				return cell.GetDoor(Map)?.Open ?? false;
-			return true;
+			if (!cell.InBounds(Map)) return false;
+
+			Building edifice = cell.GetEdifice(Map);
+			if (edifice != null && edifice.def.Fillage == FillCategory.Full)
+			{
+				if (edifice is not Building_Door door) return false;
+				if (!door.Open) return false;
+			}
+			return true; 
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
