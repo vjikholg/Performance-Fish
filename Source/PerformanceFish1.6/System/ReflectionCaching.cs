@@ -743,14 +743,14 @@ public sealed class ReflectionCaching : ClassWithFishPatches
 			public override string Description { get; }
 				= "Optimizes the GetValue method by invoking it through specialized cached delegates";
 
-			//public GetValue_Patch()
-			//{
-			//	var types = AllSubclassesNonAbstract(typeof(FieldInfo))
-			//		.SelectMany(t
-			//			=> DeclaredMethodOrNothing(t, nameof(FieldInfo.GetValue), new[] { typeof(object) }))
-			//		.Select(m => m.DeclaringType);
-			//	Log.Message(types.ToStringSafeEnumerable());
-			//}
+			// public GetValue_Patch()
+			// {
+			// 	var types = AllSubclassesNonAbstract(typeof(FieldInfo))
+			// 		.SelectMany(t
+			// 			=> DeclaredMethodOrNothing(t, nameof(FieldInfo.GetValue), new[] { typeof(object) }))
+			// 		.Select(m => m.DeclaringType);
+			// 	Log.Message(types.ToStringSafeEnumerable());
+			// }
 
 			public override MethodBase TargetMethodInfo { get; }
 				= AccessTools.DeclaredMethod(typeof(RuntimeFieldInfo), nameof(RuntimeFieldInfo.GetValue))!;

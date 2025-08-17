@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2023 bradson
+// Copyright (c) 2023 bradson
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -15,11 +15,33 @@ namespace PerformanceFish.Planet;
 public sealed class WorldObjectsOptimization : ClassWithFishPrepatches
 {
 
-    // At the moment this doesn't work since it breaks delta-based ticking 
-    // I've replaced it with a prefix on WorldObject.Tick instead, WorldObjectTickPatch
+	// At the moment this doesn't work since it breaks delta-based ticking 
+	// I've replaced it with a prefix on WorldObject.Tick instead, WorldObjectTickPatch
 	// Its not as efficient as the original idea, but thats because previously each tick would check everything 
 	// Now things that don't need to be ticked are skipped + delta-based ticking remains invariant
-    public sealed class WorldObjectsHolderTickPatch : FishPrepatch
+
+	private static Type?[]
+	_whitelistedTickingCompTypes =
+	[
+		typeof(WorldObjectComp),
+				typeof(FormCaravanComp),
+				typeof(TimedDetectionRaids),
+				typeof(EnterCooldownComp)
+	],
+	_whitelistedWorldObjectTypes =
+	[
+		typeof(WorldObject),
+				typeof(MapParent),
+				typeof(Settlement),
+				ModCompatibility.Types.RealRuins.POIWorldObject
+	];
+
+	public static int
+	CachedWorldObjectsVersion = -2,
+	CachedMapsVersion = -2;
+
+#if V1_5
+	public sealed class WorldObjectsHolderTickPatch : FishPrepatch
 	{
 		public override string? Description { get; }
 			= "The world objects holder is responsible for ticking every world object. This includes settlements, "
@@ -27,12 +49,9 @@ public sealed class WorldObjectsOptimization : ClassWithFishPrepatches
 			+ "everything equally, including many static objects that cannot possibly affect anything from a tick. "
 			+ "This patch improves the world objects holder to determine objects that need ticking in advance, cache "
 			+ "the list of them, and only tick those, skipping all the others.";
-
-
         public override MethodBase TargetMethodBase { get; }
 			= AccessTools.Method(typeof(WorldObjectsHolder), nameof(WorldObjectsHolder.WorldObjectsHolderTick));
 		
-		#if V1_5
 		public override void Transpiler(ILProcessor ilProcessor, ModuleDefinition module)
 			=> ilProcessor.ReplaceBodyWith(WorldObjectsHolderTick);
 		public static void WorldObjectsHolderTick(WorldObjectsHolder instance)
@@ -44,7 +63,7 @@ public sealed class WorldObjectsOptimization : ClassWithFishPrepatches
 			for (var i = worldObjects.Count; i-- > 0;)
 				worldObjects[i].Tick();
 		}
-		#endif
+
 		public static void UpdateCache(WorldObjectsHolder instance)
 		{
 			var staticWorldObjects = WorldObjectsHolder.tmpWorldObjects;
@@ -66,12 +85,21 @@ public sealed class WorldObjectsOptimization : ClassWithFishPrepatches
 				
 				staticWorldObjects.Add(worldObject);
 			}
-
 			CachedWorldObjectsVersion = instanceWorldObjects._version;
 			CachedMapsVersion = Current.gameInt.maps._version;
 		}
 
-		internal static bool CanSkipCompTick(WorldObject worldObject)
+		public static bool CacheDirty(WorldObjectsHolder instance)
+			=> CachedWorldObjectsVersion != instance.worldObjects._version
+			|| CachedMapsVersion != Current.gameInt.maps._version;
+
+		public static void SetDirty() => CachedWorldObjectsVersion = CachedMapsVersion = -2;
+		static WorldObjectsHolderTickPatch() => Cache.Utility.Cleared += SetDirty;
+	}
+#endif
+	internal sealed class WorldObjectHelpers
+	{
+		public static bool CanSkipCompTick(WorldObject worldObject)
 		{
 			var comps = worldObject.comps;
 
@@ -83,33 +111,12 @@ public sealed class WorldObjectsOptimization : ClassWithFishPrepatches
 
 				if (!SkippableComps.Contains(comp.GetType()))
 					return false;
-			#if V1_5
+#if V1_5
 				comp.CompTick();
-			#endif
+#endif
 			}
-
 			return true;
 		}
-
-		public static int
-			CachedWorldObjectsVersion = -2,
-			CachedMapsVersion = -2;
-
-		private static Type?[]
-			_whitelistedTickingCompTypes =
-			[
-				typeof(WorldObjectComp),
-				typeof(FormCaravanComp),
-				typeof(TimedDetectionRaids),
-				typeof(EnterCooldownComp)
-			],
-			_whitelistedWorldObjectTypes =
-			[
-				typeof(WorldObject),
-				typeof(MapParent),
-				typeof(Settlement),
-				ModCompatibility.Types.RealRuins.POIWorldObject
-			];
 
 		public static void AddCompToWhiteList(Type compType)
 		{
@@ -127,38 +134,17 @@ public sealed class WorldObjectsOptimization : ClassWithFishPrepatches
 			SkippableComps = InitializeSkippableComps(),
 			SkippableWorldObjects = InitializeSkippableWorldObjects();
 
-		private static HashSet<Type> InitializeSkippableComps()
+		internal static HashSet<Type> InitializeSkippableComps()
 			=> MakeSubclassHashSet(typeof(WorldObjectComp), nameof(WorldObjectComp.CompTick),
 				_whitelistedTickingCompTypes);
 
-		private static HashSet<Type> InitializeSkippableWorldObjects()
+		internal static HashSet<Type> InitializeSkippableWorldObjects()
 			=> MakeSubclassHashSet(typeof(WorldObject), "Tick", _whitelistedWorldObjectTypes);
 
-		private static HashSet<Type> MakeSubclassHashSet(Type type, string name, Type?[] allowedDeclaringTypes)
+		internal static HashSet<Type> MakeSubclassHashSet(Type type, string name, Type?[] allowedDeclaringTypes)
 			=> type.SubclassesWithNoMethodOverrideAndSelf(allowedDeclaringTypes, name).ToHashSet();
-
-		public static bool CacheDirty(WorldObjectsHolder instance)
-			=> CachedWorldObjectsVersion != instance.worldObjects._version
-			|| CachedMapsVersion != Current.gameInt.maps._version;
-
-		public static void SetDirty() => CachedWorldObjectsVersion = CachedMapsVersion = -2;
-
-		static WorldObjectsHolderTickPatch() => Cache.Utility.Cleared += SetDirty;
 	}
 #if V1_6
-	public sealed class WorldObjectTickPatch : FishPrepatch
-    {
-        public override string? Description { get; }
-        = "This is a minimally invasive patch for WorldObject.Tick"
-        + " that allows the world objects holder to skip ticking objects that do not need it.";
-        public override MethodBase TargetMethodBase =>
-            AccessTools.Method(typeof(WorldObject), "Tick");
-
-        [HarmonyPrefix, HarmonyPriority(HarmonyLib.Priority.High)]
-        public static bool PREFIX(WorldObject __instance) => PerTickCache.EnsureUpToDateAndMustTick(__instance);
-
-    }
-
 	internal static class PerTickCache
 	{
         private static readonly HashSet<WorldObject> _whatToTickCache = new();
@@ -186,26 +172,37 @@ public sealed class WorldObjectsOptimization : ClassWithFishPrepatches
 			list.ForEach(wo =>
 			{
 				bool hasMap = wo is MapParent { HasMap: true };	
-				bool skippableType = WorldObjectsHolderTickPatch.SkippableWorldObjects.Contains(wo.GetType());
-				bool compsRequirePerTick = !WorldObjectsHolderTickPatch.CanSkipCompTick(wo);
+				bool skippableType = WorldObjectHelpers.SkippableWorldObjects.Contains(wo.GetType());
+				bool compsRequirePerTick = !WorldObjectHelpers.CanSkipCompTick(wo);
 
 				if (!hasMap && (!skippableType || compsRequirePerTick))
 				{
 					_whatToTickCache.Add(wo);
 				}
-				#if DEBUG
+#if DEBUG
 				else if (skippableType && !compsRequirePerTick)
                 {
 					Log.Warning($"WorldObject '{wo.ToStringSafe()}' of type '{wo.GetType().Name}' is skippable, but has a comp that requires ticking. This should not happen. ");
                 }
-				#endif
+#endif
             });
 
 			_cachedMapsVersion = Current.gameInt.maps._version; 
 			_cachedWorldObjectsVersion = holder.worldObjects._version;
         }
-
     }
+	public sealed class WorldObjectTickPatch : FishPrepatch
+	{
+		public override string? Description { get; }
+		= "This is a minimally invasive patch for WorldObject.Tick"
+		+ " that allows the world objects holder to skip ticking objects that do not need it.";
+		public override MethodBase TargetMethodBase =>
+			AccessTools.Method(typeof(WorldObject), "Tick");
+
+		[HarmonyPrefix, HarmonyPriority(HarmonyLib.Priority.High)]
+		public static bool PREFIX(WorldObject __instance) => PerTickCache.EnsureUpToDateAndMustTick(__instance);
+
+	}
 #endif
 	public sealed class ExpandingIconCaching : FishPrepatch
 	{
