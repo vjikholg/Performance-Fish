@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2023 bradson
+// Copyright (c) 2023 bradson
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -31,14 +31,13 @@ public sealed class GeneTrackerOptimization : ClassWithFishPrepatches
 			if (!ModLister.BiotechInstalled)
 				return;
 
-			var genesToTick = instance.GenesToTick();
-			if (Dirty(instance, genesToTick))
-				Update(instance, genesToTick);
+			var genesToTick = instance.GenesToTick(); // custom field init by prepatcher
+			if (GeneTrackerTickHelper.Dirty(instance, genesToTick))
+				GeneTrackerTickHelper.Update(instance, genesToTick);
 			
 			for (var i = genesToTick.Count - 1; i >= 0; i--)
 			{
-				if (genesToTick[i].Active)
-					genesToTick[i].Tick();
+				if (genesToTick[i].Active) genesToTick[i].Tick();
 			}
 
 			if (instance.pawn.IsSpawned()
@@ -48,7 +47,47 @@ public sealed class GeneTrackerOptimization : ClassWithFishPrepatches
 				LessonAutoActivator.TeachOpportunity(ConceptDefOf.GenesAndXenotypes, OpportunityType.Important);
 			}
 		}
+	}
 
+	public sealed class GeneTrackerTickIntervalPatch : FishPrepatch
+	{
+		public override string? Description { get; }
+	= "Every pawn has a gene tracker, which is responsible for ticking each of their genes. Normally it ticks "
+	+ "all of them equally, including those don't change or affect anything through ticking, like skin colors "
+	+ "or basic stat modifiers. This patch improves the gene tracker to determine genes that need ticking in "
+	+ "advance, cache the list of them, and only tick those, skipping all the others. In particular, this one"
+	+ "targets the TickInterval method which uses the new VTR-delta ticking system";
+		public override MethodBase TargetMethodBase { get; }
+			= AccessTools.Method(typeof(Pawn_GeneTracker), nameof(Pawn_GeneTracker.GeneTrackerTickInterval));
+
+		public override void Transpiler(ILProcessor ilProcessor, ModuleDefinition module)
+			=> ilProcessor.ReplaceBodyWith(GeneTrackerTickInterval);
+
+		public static void GeneTrackerTickInterval(Pawn_GeneTracker instance, int delta )
+		{
+			if (!ModLister.BiotechInstalled)
+				return;
+
+			var genesToTick = instance.GenesToTick(); // custom field init by prepatcher
+			if (GeneTrackerTickHelper.Dirty(instance, genesToTick))
+				GeneTrackerTickHelper.Update(instance, genesToTick);
+
+			for (var i = genesToTick.Count - 1; i >= 0; i--)
+			{
+				if (genesToTick[i].Active) genesToTick[i].TickInterval(delta);
+			}
+
+			if (instance.pawn.IsSpawned()
+				&& instance.Xenotype != XenotypeDefOf.Baseliner
+				&& instance.pawn.IsHashIntervalTick(300))
+			{
+				LessonAutoActivator.TeachOpportunity(ConceptDefOf.GenesAndXenotypes, OpportunityType.Important);
+			}
+		}
+	}
+
+	internal sealed class GeneTrackerTickHelper
+	{
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static bool Dirty(Pawn_GeneTracker instance, List<Gene> genesToTick)
 			=> GetListVersion(instance) != genesToTick._version;
@@ -74,7 +113,7 @@ public sealed class GeneTrackerOptimization : ClassWithFishPrepatches
 			for (var i = 0; i < count; i++)
 			{
 				var gene = genes[i];
-				if (SkippableTypes.Contains(gene.GetType())
+				if (_skippableTypes.Contains(gene.GetType())
 					&& (gene.def.mentalBreakMtbDays <= 0f || gene.def.mentalBreakDef == null))
 				{
 					continue;
@@ -83,8 +122,8 @@ public sealed class GeneTrackerOptimization : ClassWithFishPrepatches
 				genesToTick.Add(gene);
 			}
 		}
-		
-		public static HashSet<Type> SkippableTypes
+
+		private static readonly HashSet<Type> _skippableTypes
 			= typeof(Gene).SubclassesWithNoMethodOverrideAndSelf(nameof(Gene.Tick)).ToHashSet();
 	}
 }

@@ -199,9 +199,9 @@ public sealed class WorldObjectsOptimization : ClassWithFishPrepatches
 		public override MethodBase TargetMethodBase =>
 			AccessTools.Method(typeof(WorldObject), "Tick");
 
-		[HarmonyPrefix, HarmonyPriority(HarmonyLib.Priority.High)]
-		public static bool PREFIX(WorldObject __instance) => PerTickCache.EnsureUpToDateAndMustTick(__instance);
-
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static bool Prefix(WorldObject __instance) => PerTickCache.EnsureUpToDateAndMustTick(__instance);
+	
 	}
 #endif
 	public sealed class ExpandingIconCaching : FishPrepatch
