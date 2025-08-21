@@ -3,11 +3,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-using System.Linq;
+using FisheryLib;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using PerformanceFish.Prepatching;
 using RimWorld.Planet;
+using System.Linq;
 using UnityEngine.UI;
 
 namespace PerformanceFish.Planet;
@@ -155,9 +156,9 @@ public sealed class WorldObjectsOptimization : ClassWithFishPrepatches
         public static bool EnsureUpToDateAndMustTick(WorldObject worldObject)
 		{
 			var holder = Find.WorldObjects; 
-			if(_cachedWorldObjectsVersion != holder.worldObjects._version|| _cachedMapsVersion != Current.gameInt.maps._version)
+			if(CacheDirty(holder))
 			{
-				Rebuild(holder);
+				CacheRebuild(holder);
 				_cachedWorldObjectsVersion = holder.worldObjects._version;
 				_cachedMapsVersion = Current.gameInt.maps._version;
             }
@@ -165,7 +166,9 @@ public sealed class WorldObjectsOptimization : ClassWithFishPrepatches
 			return _whatToTickCache.Contains(worldObject);
 
         }
-		private static void Rebuild(WorldObjectsHolder holder)
+		private static bool CacheDirty(WorldObjectsHolder holder) => _cachedWorldObjectsVersion != holder.worldObjects._version || _cachedMapsVersion != Current.gameInt.maps._version;
+
+		private static void CacheRebuild(WorldObjectsHolder holder)
 		{
 			_whatToTickCache.Clear();
 			var list = holder.worldObjects;

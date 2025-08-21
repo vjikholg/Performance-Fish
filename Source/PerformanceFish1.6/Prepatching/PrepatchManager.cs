@@ -49,7 +49,6 @@ public static class PrepatchManager
 		if (!ActiveMods.Prepatcher)
 			Log.Warning("Prepatches running without prepatcher active. This should normally not happen.");
 
-		Log.Message("STOPWATCH STARTING");
 		var stopwatch = new Stopwatch();
 		stopwatch.Start();
 		
@@ -82,30 +81,36 @@ public static class PrepatchManager
 
 		Application.logMessageReceivedThreaded -= Verse.Log.Notify_MessageReceivedThreadedInternal;
 
-		Log.Message("ADDING ATTRIBUTES");
 		AddAttributes(module);
 
-		Log.Message("MODIFYING ALL TYPES");
 		ModifyAllTypes(module);
 
-		Log.Message("INITIALIZE ALL PREPATCH CLASSES");
-		var allPrepatchClasses
-			= PerformanceFishMod.AllPrepatchClasses
-				= PerformanceFishMod.InitializeAllPatchClasses<ClassWithFishPrepatches>();
+		Log.Message("[PF] Initializing prepatch classes...");
+		try
+		{
+			var allPrepatchClasses
+				= PerformanceFishMod.AllPrepatchClasses
+					= PerformanceFishMod.InitializeAllPatchClasses<ClassWithFishPrepatches>();
+			_ = FishSettings.Instance;
+			Log.Message("APPLYING ALL PREPATCH CLASSES");
+			allPrepatchClasses.ApplyPatches(module);
 
-		_ = FishSettings.Instance;
-		Log.Message("APPLYING ALL PREPATCH CLASSES");
-		allPrepatchClasses.ApplyPatches(module);
+			Log.Message("INITIALIZING PREPATCH IDS");
+			FishStash.Get.InitializeActivePrepatchIDs();
+			PatchingFinished = true;
 
-		Log.Message("INITIALIZING PREPATCH IDS");
+			Log.Message("PATCHING FINISHED");
+			stopwatch.Stop();
+			Verse.Log.Message($"Performance Fish finished applying prepatches in {stopwatch.ElapsedSecondsAccurate():N7} seconds");
 
-		FishStash.Get.InitializeActivePrepatchIDs();
-		PatchingFinished = true;
+		}
+		catch (Exception ex)
+		{
+			Log.Message("Failed to initialize and patch all prepatch classes. This usually indicates a problem "
+				+ "with one of the classes inheriting from ClassWithFishPrepatches. See the error below for details.");
+			Log.Message(ex.ToString());
 
-		Log.Message("PATCHING FINISHED");
-		stopwatch.Stop();
-		Verse.Log.Message($"Performance Fish finished applying prepatches in {
-			stopwatch.ElapsedSecondsAccurate():N7} seconds");
+		}
 	}
 
 	private const string VERIFICATION_FIELD_NAME = "PerformanceFishS1ngl3Pr3p4tchV3r1f1c4t10nF13ld";
