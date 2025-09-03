@@ -496,63 +496,82 @@ public sealed class ReflectionCaching : ClassWithFishPatches
 		}
 	}
 
-	public sealed class MonoCustomAttrs
+
+	// out of index exception here. 
+	// I can't for the life of me figure out what's wrong with these lines of code. 
+	// if I had to guess, its likely reading an empty attribute somewhere 
+	// *not* exactly sure where the multithreading aspect is coming from
+	// however it throws two issues - which im fairly certain are unrelated 
+	// throws IndexOutOfRangeException + ArgumentException
+	// I'm fairly certain the first one is from reading an empty attribute somewhere which I have no idea how thats possible
+	// The second one is likely due to RTFieldInfo being used MonoField in 1.6 update 
+	// I *could* fix these issues but without PDB/Debugging its like throwing darts blindfolded
+
+	public sealed class MonoCustomAttrs 
 	{
-		public sealed class GetCustomAttributes : FishPatch
-		{
-			public override string? Description { get; }
-				= "Caches attributes for reflection lookups. Decent load time improvement.";
-
-			public override Delegate? TargetMethodGroup { get; }
-				= (Func<ICustomAttributeProvider, Type, bool, object[]>)global::System.MonoCustomAttrs
-					.GetCustomAttributes;
-
-			[MethodImpl(MethodImplOptions.AggressiveInlining)]
-			public static bool Prefix(ICustomAttributeProvider obj, Type attributeType, bool inherit,
-				out object[]? __result, out CustomAttributeState __state)
-			{
-				var key = new CustomAttributeCache(obj, (__state.AttributeType = attributeType).TypeHandle,
-					__state.Inherit = inherit);
-
-				ref var cache = ref CustomAttributeCache.GetOrAddReference(in key);
-				if (cache.Attributes is null)
-					TryGetFromCentralCache(ref key, ref cache);
-
-				return __state.State = (__result = cache.Attributes) is null;
-			}
-
-			[MethodImpl(MethodImplOptions.NoInlining)]
-			private static void TryGetFromCentralCache(ref CustomAttributeCache key,
-				ref CustomAttributeCacheValue cache)
-			{
-				lock (_lock)
-					cache.Attributes = CustomAttributeCache.GetDirectly.GetOrAdd(ref key).Attributes;
-			}
-
-			[MethodImpl(MethodImplOptions.AggressiveInlining)]
-			public static void Postfix(ICustomAttributeProvider obj, object[]? __result,
-				in CustomAttributeState __state)
-			{
-				if (!__state.State || __result is null)
-					return;
-
-				UpdateCache(obj, __state, __result);
-			}
-
-			[MethodImpl(MethodImplOptions.NoInlining)]
-			private static void UpdateCache(ICustomAttributeProvider obj, in CustomAttributeState __state,
-				object[]? __result)
-			{
-				var key = new CustomAttributeCache(obj, __state.AttributeType.TypeHandle, __state.Inherit);
-				
-				CustomAttributeCache.GetExistingReference(in key).Attributes = __result;
-
-				lock (_lock)
-					CustomAttributeCache.GetDirectly.GetReference(ref key).Attributes = __result;
-			}
-
-			private static object _lock = new();
-		}
+		// public sealed class GetCustomAttributes : FishPatch
+		// {
+		// 	public override string? Description { get; }
+		// 		= "Caches attributes for reflection lookups. Decent load time improvement.";
+		// 
+		// 	public override Delegate? TargetMethodGroup { get; }
+		// 		= (Func<ICustomAttributeProvider, Type, bool, object[]>)global::System.MonoCustomAttrs
+		// 			.GetCustomAttributes;
+		// 
+		// 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		// 	public static bool Prefix(ICustomAttributeProvider obj, Type attributeType, bool inherit,
+		// 		out object[]? __result, out CustomAttributeState __state)
+		// 	{
+		// 		var key = new CustomAttributeCache(obj, (__state.AttributeType = attributeType).TypeHandle,
+		// 			__state.Inherit = inherit);
+		// 		Log.Message($"key: {key.ToStringSafe()}");
+		// 		Log.Message($"Custom Attributes Patch: {attributeType.FullName}");
+		// 		ref var cache = ref CustomAttributeCache.GetOrAddReference(in key); // this line likely outofrange
+		// 		Log.Message($"We could get a cache ref!");
+		// 		if (cache.Attributes is null)
+		// 			TryGetFromCentralCache(ref key, ref cache);
+		// 
+		// 		return __state.State = (__result = cache.Attributes) is null;
+		// 	}
+		// 
+		// 	[MethodImpl(MethodImplOptions.NoInlining)]
+		// 	private static void TryGetFromCentralCache(ref CustomAttributeCache key, ref CustomAttributeCacheValue cache)
+		// 	{
+		// 		lock (_lock)
+		// 			try
+		// 			{
+		// 				cache.Attributes = CustomAttributeCache.GetDirectly.GetOrAdd(ref key).Attributes;
+		// 			}
+		// 			catch (Exception ex)
+		// 			{
+		// 				throw;
+		// 			}
+		// 	}
+		// 
+		// 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		// 	public static void Postfix(ICustomAttributeProvider obj, object[]? __result,
+		// 		in CustomAttributeState __state)
+		// 	{
+		// 		if (!__state.State || __result is null)
+		// 			return;
+		// 
+		// 		UpdateCache(obj, __state, __result);
+		// 	}
+		// 
+		// 	[MethodImpl(MethodImplOptions.NoInlining)]
+		// 	private static void UpdateCache(ICustomAttributeProvider obj, in CustomAttributeState __state,
+		// 		object[]? __result)
+		// 	{
+		// 		var key = new CustomAttributeCache(obj, __state.AttributeType.TypeHandle, __state.Inherit);
+		// 		
+		// 		CustomAttributeCache.GetExistingReference(in key).Attributes = __result;
+		// 
+		// 		lock (_lock)
+		// 			CustomAttributeCache.GetDirectly.GetReference(ref key).Attributes = __result;
+		// 	}
+		// 
+		// 	private static object _lock = new();
+		// }
 
 		public record struct CustomAttributeCacheValue
 		{

@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2023 bradson
+// Copyright (c) 2023 bradson
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -191,8 +191,13 @@ public abstract class FishPatch : SingletonFactory<FishPatch>, IExposable, IHasD
 	protected virtual void ApplyPatch()
 	{
 		Patched = true;
-		foreach (var method in TargetMethodInfos)
+		Array targetMethodInfoDebug = TargetMethodInfos.ToArray(); 
+
+		// foreach (var method in TargetMethodInfos)
+		for (var i = 0; i < targetMethodInfoDebug.Length; i++)
 		{
+			// DebugLog.Message($"We are at index {i}");
+			var method = (MethodBase)targetMethodInfoDebug.GetValue(i)!;
 			DebugLog.Message($"Performance Fish is applying {GetType().Name} on {method.FullDescription()}");
 
 			try
@@ -207,7 +212,6 @@ public abstract class FishPatch : SingletonFactory<FishPatch>, IExposable, IHasD
 							prefix: new(methodof(Benchmarking.Prefix), Priority.First + 1),
 							postfix: new(methodof(Benchmarking.Postfix), Priority.Last - 1)));
 					}
-
 					BenchmarkHarmonyMethodInfos.Add(PerformanceFishMod.Harmony!.Patch(method,
 						prefix: new(methodof(Benchmarking.Prefix), Priority.First + 1),
 						postfix: new(methodof(Benchmarking.Postfix), Priority.Last - 1)));
@@ -225,7 +229,7 @@ public abstract class FishPatch : SingletonFactory<FishPatch>, IExposable, IHasD
 						|| TranspilerMethodInfo != null
 						|| FinalizerMethodInfo != null)
 					{
-						HarmonyMethodInfos.Add(PerformanceFishMod.Harmony!.Patch(method,
+						HarmonyMethodInfos.Add(PerformanceFishMod.Harmony!.Patch(method,						
 							prefix: TryMakeHarmonyMethod(PrefixMethodInfo, PrefixMethodPriority),
 							postfix: TryMakeHarmonyMethod(PostfixMethodInfo, PostfixMethodPriority),
 							transpiler: TryMakeHarmonyMethod(TranspilerMethodInfo, TranspilerMethodPriority),

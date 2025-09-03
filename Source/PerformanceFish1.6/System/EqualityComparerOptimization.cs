@@ -28,45 +28,94 @@ public sealed class EqualityComparerOptimization : ClassWithFishPatches
 				return;
 
 			var types = AccessTools.AllTypes().ToList();
-			
+
 			Parallel.ForEach(Partitioner.Create(0, types.Count), (range, _) =>
 			{
 				for (var i = range.Item1; i < range.Item2; i++)
 				{
-					var type = types[i];
-					object? equalityComparer
-						= type == typeof(int) ? new IntEqualityComparer()
-						: type == typeof(ushort) ? new UshortEqualityComparer()
-						: type == typeof(string) ? new StringEqualityComparer()
-						: null;
-			
-					if (equalityComparer != null)
+					try
 					{
-						SetValueForDefaultComparer(type, equalityComparer);
-						return;
-					}
-				
-					if (!type.IsValueType
-						|| type == typeof(void)
-						|| type.IsGenericTypeDefinition
-						|| type.IsEnum
-						|| type == typeof(byte))
-					{
-						return;
-					}
+						var type = types[i];
+						object? equalityComparer                                            // check easy type - int, ushort, or string are *easy* - immediately invoke default comparers.
+								= type == typeof(int) ? new IntEqualityComparer()
+								: type == typeof(ushort) ? new UshortEqualityComparer()
+								: type == typeof(string) ? new StringEqualityComparer()
+								: null;
 
-					SetValueForDefaultComparer(type,
-						Activator.CreateInstance(
-							type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>)
-								? (type.GetGenericArguments()[0] is var genericArgument
-									&& genericArgument.IsAssignableTo(typeof(IEquatable<>), type)
-										? typeof(EquatableNullableEqualityComparer<>)
-										: typeof(NullableEqualityComparer<>)).MakeGenericType(genericArgument)
-								: (type.IsAssignableTo(typeof(IEquatable<>), type)
-									? typeof(EquatableValueTypeEqualityComparer<>)
-									: typeof(ValueTypeEqualityComparer<>)).MakeGenericType(type)));
+						if (equalityComparer != null)                                       // type is null -> 
+						{
+							SetValueForDefaultComparer(type, equalityComparer);             // run SetValueDefaultComparer... 
+							return;
+						}
+
+						if (!type.IsValueType                                               // if the type is not a ValueType, is void, is Generic, is Enum, or is Byte 
+							|| type == typeof(void)                                         // is void
+							|| type.IsGenericTypeDefinition                                 // is a generic
+							|| type.IsEnum                                                  // is an enum
+							|| type == typeof(byte)                                         // is byte 
+							|| type.IsByRef                                                 // is ref
+							|| type.IsByRefLike                                             // is ref struct
+							|| type.IsPointer)                                              // is pointer,  we skip this type
+						{
+							return;
+						}
+
+						SetValueForDefaultComparer(type,
+							Activator.CreateInstance(
+								type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>)
+									? (type.GetGenericArguments()[0] is var genericArgument
+										&& genericArgument.IsAssignableTo(typeof(IEquatable<>), type)
+											? typeof(EquatableNullableEqualityComparer<>)
+											: typeof(NullableEqualityComparer<>)).MakeGenericType(genericArgument)
+									: (type.IsAssignableTo(typeof(IEquatable<>), type)
+										? typeof(EquatableValueTypeEqualityComparer<>)
+										: typeof(ValueTypeEqualityComparer<>)).MakeGenericType(type))); // exception code
+					}
+					catch (Exception e)
+					{
+						Log.Message($" Ran into recoverable {e.GetType().Name} exception within EqualityComparisonOptimizations: {e.Message}");
+					}
 				}
-			});
+			});  
+
+			// Parallel.ForEach(Partitioner.Create(0, types.Count), (range, _) =>			// partitioner creates "chunky" sets of works for parallel threads. 
+			// {																			// in each chunk, do these: 
+			// 	for (var i = range.Item1; i < range.Item2; i++)
+			// 	{
+			// 		var type = types[i];												// type = types[i]
+			// 		object? equalityComparer											// check easy type - int, ushort, or string are *easy* - immediately invoke default comparers.
+			// 			= type == typeof(int) ? new IntEqualityComparer()
+			// 			: type == typeof(ushort) ? new UshortEqualityComparer()
+			// 			: type == typeof(string) ? new StringEqualityComparer()
+			// 			: null;
+			// 
+			// 		if (equalityComparer != null)										// type is null -> 
+			// 		{
+			// 			SetValueForDefaultComparer(type, equalityComparer);				// run SetValueDefaultComparer... 
+			// 			return;
+			// 		}
+			// 	
+			// 		if (!type.IsValueType												// if the type is not a ValueType, is void, is Generic, is Enum, or is Byte 
+			// 			|| type == typeof(void)											// we want to skip this type;
+			// 			|| type.IsGenericTypeDefinition
+			// 			|| type.IsEnum
+			// 			|| type == typeof(byte))
+			// 		{
+			// 			return;
+			// 		}
+			// 
+			// 		SetValueForDefaultComparer(type,
+			// 			Activator.CreateInstance(
+			// 				type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>)
+			// 					? (type.GetGenericArguments()[0] is var genericArgument
+			// 						&& genericArgument.IsAssignableTo(typeof(IEquatable<>), type)
+			// 							? typeof(EquatableNullableEqualityComparer<>)
+			// 							: typeof(NullableEqualityComparer<>)).MakeGenericType(genericArgument)
+			// 					: (type.IsAssignableTo(typeof(IEquatable<>), type)
+			// 						? typeof(EquatableValueTypeEqualityComparer<>)
+			// 						: typeof(ValueTypeEqualityComparer<>)).MakeGenericType(type)));
+			// 	}
+			// });
 		}
 
 		private static void SetValueForDefaultComparer(Type type, object value)

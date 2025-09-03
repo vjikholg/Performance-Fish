@@ -31,6 +31,7 @@ using System.Threading.Tasks;
 using JetBrains.Annotations;
 using PerformanceFish.ModCompatibility;
 using PerformanceFish.Prepatching;
+using UnityEngine.Assertions.Must;
 
 [assembly: AllowPartiallyTrustedCallers]
 [assembly: SecurityRules(SecurityRuleSet.Level2, SkipVerificationInFullTrust = true)]
@@ -138,7 +139,7 @@ public sealed class PerformanceFishMod : Mod
 		}
 
 #if DEBUG
-		LogPatchCount();
+		// LogPatchCount();
 #endif
 	}
 
@@ -189,22 +190,12 @@ public sealed class PerformanceFishMod : Mod
 
 	private static int SumFor<T>(List<T> allFishPatches, Func<T, MethodInfo?> methodInfoGetter)
 		=> allFishPatches.Sum(fishPatch => methodInfoGetter(fishPatch) != null ? 1 : 0);
-
+	
 	internal static T[] InitializeAllPatchClasses<T>() where T : notnull
 	{
 		Log.Message($"Initializing all patch classes of type {typeof(T).Name}...");
 		var types = Assembly.GetExecutingAssembly().GetTypes();
-		var candidates = types.Where(t => t.IsAssignableTo(typeof(ClassWithFishPrepatches)) && !t.IsInterface && !t.IsAbstract)
-		.OrderBy(t => t.FullName)  // stable order
-		.ToList();
-
-		Log.Message($"[PF] Patch classes ({candidates.Count}):\n  - " + string.Join("\n  - ", candidates.Select(t => t.FullName)));
-
 		var list = new List<T>(types.Length);
-		Log.Message($"Found {types.Length} types in the assembly.");	
-		Log.Message($"Searching for all patch classes of type {typeof(T).Name}...");
-		Log.Message($"Found {types.Count(type => type.IsAssignableTo(typeof(T)) && !type.IsInterface && !type.IsAbstract)} patch classes of type {typeof(T).Name}.");
-
 
 		if (typeof(T).IsAssignableTo(typeof(FishPatch)))
 			Parallel.ForEach(types, InitializePatchClass);
@@ -215,36 +206,21 @@ public sealed class PerformanceFishMod : Mod
 		
 		void InitializePatchClass(Type type)
 		{
-			Log.Message($"Initializing class of type {type.Name}...");
-			if (type.Name == "GeneTrackerOptimization")
+			if (!type.IsAssignableTo(typeof(T)) || type.IsAbstract || type.IsInterface)
 			{
-				Log.Message($"Skipping GeneTrackerOptimization - crashcode");
-				return;
-			} else if (type.Name == "GenTypesPatches")
-			{
-				Log.Message($"Skipping GenTypesPatches - crashcode");
 				return;
 			}
 			try
-				{
-					if (!type.IsAssignableTo(typeof(T))
-						|| type.IsInterface
-						|| type.IsAbstract)
-					{
-						Log.Message($"Skipping {type.Name} as it is not assignable to {typeof(T).Name}, is an interface or is abstract.");
-						return;
-					}
+			{
+				var patchClass = SingletonFactory<T>.Get(type);
 
-					var patchClass = SingletonFactory<T>.Get(type);
+				lock (((ICollection)list).SyncRoot) list.Add(patchClass);
 
-					lock (((ICollection)list).SyncRoot)
-						list.Add(patchClass);
-					Log.Message($"Successfully initialized {type.Name}.");
-				}
-				catch (Exception ex)
-				{
-					Log.Error($"{NAME} encountered an exception while trying to initialize {type.Name}:\n{ex}");
-				}
+			}
+			catch (Exception ex)
+			{
+				Log.Error($"{NAME} encountered an exception while trying to initialize {type.FullName}:\n{ex}");
+			}
 		}
 	}
 
