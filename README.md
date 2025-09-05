@@ -1,3 +1,10 @@
+# Disclaimer
+This is primarily a private fork for *purely* educational purposes, but I've made it public so other people might be able to learn from it as well if they're at all interested. Bradson writes incredible stuff and I want to learn from it, I'm using this as an opportunity to add C#/.NET to my tech stack, learn new OOP techniques(Types + Reflections, Transpiler, Harmony, etc) not covered in my SDev classes. Genuinely fascinating to me how Rimworld under the hood works and how PF is able to build on top of that using surgically precise replacements. 
+
+Use at your own risk. If you want a stable version of Performance Fish, please be patient and use the original mod by bbradson when it comes out. Prepatcher is unofficially fixed so chances are he's actively working on a much better version of it right now. 
+
+AI USE WAS STRICTLY ANALYTICAL TO LEARN C# SYNTAX!!! NO AI WAS USED TO WRITE OR MODIFY ANY OF THE CODE!!! ON GOD AI SUCKS!!! 
+
 # Performance Fish
 ![](About/Preview.png?raw=true)  
   
